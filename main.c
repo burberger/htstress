@@ -19,7 +19,8 @@ static char args_doc[] = "address:port";
 /* Accepted arguments */
 static struct argp_option options[] = {
   { "nthreads",  'n', "TC",   0, "Number of threads to run" },
-  { "frequency", 'f', "FREQ", 0, "Rate to run requests at in hertz (integers only).  Default is 0 (maximum runnable)" },
+  { "frequency", 'f', "FREQ", 0, "Rate to run requests at in hertz (integers \
+    only).  Default is 0 (maximum runnable)" },
   { "verbose",   'v', 0,      0, "Output additional request info" },
   { 0 }
 };
@@ -63,6 +64,13 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = { options, parse_opt, args_doc, doc };
 
+/* drop_response:
+ * do nothing function that discards the response from the server
+ */
+size_t drop_response(char *ptr, size_t size, size_t nmemb, void *userdata) {
+  return size * nmemb;
+}
+
 /* fetch_url:
  * url: string of url to fetch
  * pre_callback: function to call before making request
@@ -76,11 +84,11 @@ static void *fetch_url(void *t_args) {
   CURL *curl;
   curl = curl_easy_init();
   curl_easy_setopt(curl, CURLOPT_URL, args->url);
+  /* check for response callback, otherwise discard response */
   if (args->resp_callback) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, args->resp_callback);
   } else {
-    /* TODO: create drop response function that just returns size of input */
-    /*curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, drop_response);*/
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &drop_response);
   }
   while (running) {
   }
