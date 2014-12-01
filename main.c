@@ -1,7 +1,8 @@
 #include <argp.h>
-#include <err.h>
-#include <stdlib.h>
 #include <curl/curl.h>
+#include <err.h>
+#include <pthread.h>
+#include <stdlib.h>
 #include "htstress.h"
 
 /* Global interrupt indicator */
@@ -79,49 +80,64 @@ size_t drop_response(char *ptr, size_t size, size_t nmemb, void *userdata) {
  * Fetches provided URL at specified frequency, checking response with
  * parser provided as argument
  */
-static void *fetch_url(void *t_args) {
+void *fetch_url(void *t_args) {
   thread_args *args = (thread_args*) t_args;
   CURL *curl;
   curl = curl_easy_init();
+  if (!curl) {
+    errx(1, "curl could not initialize!");
+  }
   curl_easy_setopt(curl, CURLOPT_URL, args->url);
+
   /* check for response callback, otherwise discard response */
   if (args->resp_callback) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, args->resp_callback);
   } else {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &drop_response);
   }
+
+  /* Request loop */
+  CURLcode res;
   while (running) {
+    if (args->pre_callback) {
+      args->pre_callback(curl);
+    }
+    res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+      fprintf(stderr, "Request failed to %s: %s\n", args->url, curl_easy_strerror(res));
+    }
   }
   curl_easy_cleanup(curl);
+  pthread_exit(0);
 }
 
 int main(int argc, char **argv) {
-  /* Arguments parsing */
-  struct prog_args args;
-  args.verbose = 0;
-  args.nthreads = 0;
-  args.freq = 0;
-  args.url = 0;
+  /* Arg parsing and init */
+  prog_args *args = prog_args_init();
+  thread_args *t_args = thread_args_init();
+  argp_parse(&argp, argc, argv, 0, 0, args);
 
-  argp_parse(&argp, argc, argv, 0, 0, &args);
-
-  /* CURL Setup */
-  CURL *curl;
-  CURLcode res;
+  t_args->url = args->url;
 
   curl_global_init(CURL_GLOBAL_DEFAULT);
 
-  curl = curl_easy_init();
-  if (curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, args.url);
-    res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-      fprintf(stderr, "Request failed: %s", curl_easy_strerror(res));
+  /* create threads and hand out work */
+  int i, err;
+  pthread_t tid[args->nthreads];
+  for (i = 0; i < args->nthreads; i++) {
+    err = pthread_create(&tid[i], NULL, &fetch_url, t_args);
+    if (err) {
+      errx(err, "Could not create threads!");
     }
-    curl_easy_cleanup(curl);
+  }
+
+  /* wait for all threads to terminate */
+  for (i = 0; i < args->nthreads; i++) {
+    err = pthread_join(tid[i], NULL);
   }
 
   curl_global_cleanup();
+  printf("Program exited successfully.\n");
 
   return 0;
 }

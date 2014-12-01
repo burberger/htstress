@@ -11,6 +11,8 @@ typedef struct prog_args {
   char* url;
 } prog_args;
 
+prog_args* prog_args_init();
+
 /* callbacks */
 typedef void (*pre_func)(CURL*);
 typedef size_t (*resp_func)(char*, size_t, size_t, void*);
@@ -21,5 +23,7 @@ typedef struct thread_args {
   pre_func pre_callback;
   resp_func resp_callback;
 } thread_args;
+
+thread_args* thread_args_init();
 
 #endif

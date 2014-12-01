@@ -1,4 +1,4 @@
 all: main
 
-main: main.c
-	${CC} -g -Wall main.c -lcurl -o htstress
+main: main.c htstress.h htstress.c
+	${CC} -std=c11 -g -Wall main.c htstress.c -lcurl -pthread -o htstress
