@@ -136,8 +136,11 @@ int main(int argc, char **argv) {
     err = pthread_join(tid[i], NULL);
   }
 
+  free(args);
+  free(t_args);
   curl_global_cleanup();
   printf("Program exited successfully.\n");
 
   return 0;
 }
+
