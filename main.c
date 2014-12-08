@@ -21,7 +21,7 @@ static char args_doc[] = "address:port";
 static struct argp_option options[] = {
   { "nthreads",  'n', "TC",   0, "Number of threads to run" },
   { "frequency", 'f', "FREQ", 0, "Rate to run requests at in hertz (integers \
-    only).  Default is 0 (maximum runnable)" },
+  only).  Default is 0 (maximum runnable)" },
   { "verbose",   'v', 0,      0, "Output additional request info" },
   { 0 }
 };
@@ -134,8 +134,12 @@ int main(int argc, char **argv) {
   /* wait for all threads to terminate */
   for (i = 0; i < args->nthreads; i++) {
     err = pthread_join(tid[i], NULL);
+    if (err) {
+      errx(err, "Could not join threads!");
+    }
   }
 
+  /* Cleanup and exit */
   free(args);
   free(t_args);
   curl_global_cleanup();
